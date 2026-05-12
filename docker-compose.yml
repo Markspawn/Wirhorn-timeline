@@ -1,0 +1,10 @@
+services:
+  wirhorn-timeline:
+    build: .
+    container_name: wirhorn-timeline
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data:/usr/share/nginx/html/data
+      - ./assets:/usr/share/nginx/html/assets
+    restart: unless-stopped
