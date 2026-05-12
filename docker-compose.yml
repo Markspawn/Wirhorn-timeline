@@ -6,5 +6,8 @@ services:
       - "8080:80"
     volumes:
       - ./data:/usr/share/nginx/html/data
-      - ./assets:/usr/share/nginx/html/assets
+      # Do not mount over /usr/share/nginx/html/assets.
+      # Vite stores the compiled app JavaScript/CSS there.
+      # Put optional campaign images in ./user-assets and reference them as /user-assets/image-name.png.
+      - ./user-assets:/usr/share/nginx/html/user-assets
     restart: unless-stopped
