@@ -86,6 +86,7 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
 
         return {
           id: event.id,
+          group: 'worldline',
           content: `<span class="worldline-marker" aria-hidden="true">${escapeHtml(icon)}</span>`,
           title: `<strong>${escapedTitle}</strong><br><span>${escapedDate}</span><br><em>${escapedGroup}</em>`,
           start: timelineYearToValue(event.start),
@@ -149,8 +150,8 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       }
     };
 
-    const emptyGroups = new DataSet([]);
-    const timeline = new Timeline(containerRef.current, items, emptyGroups, options);
+    const worldlineGroups = new DataSet([{ id: 'worldline', content: '' }]);
+    const timeline = new Timeline(containerRef.current, items, worldlineGroups, options);
     timeline.addCustomTime(new Date(timelineYearToValue(0)), 'shattering-divider');
     timelineRef.current = timeline;
 
