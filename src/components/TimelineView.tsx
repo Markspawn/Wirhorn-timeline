@@ -149,7 +149,8 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       }
     };
 
-    const timeline = new Timeline(containerRef.current, items, undefined, options);
+    const emptyGroups = new DataSet([]);
+    const timeline = new Timeline(containerRef.current, items, emptyGroups, options);
     timeline.addCustomTime(new Date(timelineYearToValue(0)), 'shattering-divider');
     timelineRef.current = timeline;
 
