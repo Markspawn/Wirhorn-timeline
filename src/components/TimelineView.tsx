@@ -4,7 +4,7 @@ import { Timeline } from 'vis-timeline/peer';
 import type { TimelineOptions } from 'vis-timeline/peer';
 import type { TimelineEvent } from '../App';
 import { timelineYearToValue, valueToTimelineYear } from '../lib/dateParser';
-import { TIMELINE_GROUPS, getGroupColor } from '../lib/groupColors';
+import { getGroupColor, getGroupIcon } from '../lib/groupColors';
 
 type TimelineViewProps = {
   events: TimelineEvent[];
@@ -20,6 +20,8 @@ const escapeHtml = (value: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+
+const slugify = (value: string): string => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 const getEventMidpointValue = (event: TimelineEvent): number => {
   const start = timelineYearToValue(event.start);
@@ -61,6 +63,8 @@ const getInitialWindow = (events: TimelineEvent[]) => {
   };
 };
 
+const getStaggerClass = (index: number): string => `worldline-stagger-${index % 7}`;
+
 export default function TimelineView({ events, onSelectEvent, onPreviewEvent, resetSignal }: TimelineViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<Timeline | null>(null);
@@ -71,32 +75,23 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       return;
     }
 
-    const groups = new DataSet(
-      TIMELINE_GROUPS.map((group, index) => {
-        const color = getGroupColor(group);
-
-        return {
-          id: group,
-          content: `<span class="group-label"><span class="group-dot" style="background:${color.color}"></span>${group}</span>`,
-          order: index
-        };
-      })
-    );
-
     const items = new DataSet(
-      events.map((event) => {
+      events.map((event, index) => {
         const color = getGroupColor(event.group);
+        const icon = getGroupIcon(event.group);
         const isRange = typeof event.end === 'number' && event.end !== event.start;
+        const escapedTitle = escapeHtml(event.title);
+        const escapedDate = escapeHtml(event.displayDate);
+        const escapedGroup = escapeHtml(event.group);
 
         return {
           id: event.id,
-          group: event.group,
-          content: `<span class="timeline-card-title">${escapeHtml(event.title)}</span><span class="timeline-card-date">${escapeHtml(event.displayDate)}</span>`,
-          title: `${event.title} — ${event.displayDate}`,
+          content: `<span class="worldline-marker" aria-hidden="true">${escapeHtml(icon)}</span>`,
+          title: `<strong>${escapedTitle}</strong><br><span>${escapedDate}</span><br><em>${escapedGroup}</em>`,
           start: timelineYearToValue(event.start),
           end: isRange ? timelineYearToValue(event.end as number) : undefined,
           type: isRange ? 'range' : 'box',
-          className: `timeline-item timeline-item-${event.group.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+          className: `timeline-item worldline-item worldline-${isRange ? 'range' : 'point'} ${getStaggerClass(index)} timeline-item-${slugify(event.group)}`,
           style: `--event-color:${color.color};--event-border:${color.border};--event-soft:${color.soft};--event-text:${color.text};`
         };
       })
@@ -118,10 +113,10 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       end: initialWindow.end,
       margin: {
         item: {
-          horizontal: 18,
-          vertical: 18
+          horizontal: 22,
+          vertical: 12
         },
-        axis: 24
+        axis: 34
       },
       showCurrentTime: false,
       tooltip: {
@@ -154,7 +149,9 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       }
     };
 
-    const timeline = new Timeline(containerRef.current, items, groups, options);
+    const timeline = new Timeline(containerRef.current, items, options);
+    timeline.addCustomTime(new Date(timelineYearToValue(0)), 'shattering-divider');
+    timelineRef.current = timeline;
 
     timeline.on('itemover', (properties: { item?: string | number }) => {
       const hoveredId = properties.item?.toString();
@@ -176,12 +173,13 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       const selectedEvent = selectedId ? eventsById.get(selectedId) : undefined;
 
       if (selectedEvent) {
+        onPreviewEvent(selectedEvent);
         onSelectEvent(selectedEvent);
-        timeline.setSelection([]);
       }
     });
 
-    timelineRef.current = timeline;
+    const centeredEvent = getClosestEventToValue(events, (initialWindow.start + initialWindow.end) / 2);
+    onPreviewEvent(centeredEvent);
 
     return () => {
       timeline.destroy();
@@ -195,18 +193,28 @@ export default function TimelineView({ events, onSelectEvent, onPreviewEvent, re
       return;
     }
 
-    const initialWindow = getInitialWindow(events);
-    timeline.setWindow(initialWindow.start, initialWindow.end, { animation: true });
-  }, [resetSignal, events]);
+    const nextWindow = getInitialWindow(events);
+    timeline.setWindow(nextWindow.start, nextWindow.end, { animation: true });
+    onPreviewEvent(getClosestEventToValue(events, (nextWindow.start + nextWindow.end) / 2));
+  }, [events, onPreviewEvent, resetSignal]);
 
   if (events.length === 0) {
     return (
       <div className="empty-state">
-        <h2>No visible events</h2>
-        <p>Adjust filters, disable Player Mode, or clear the search field to reveal timeline entries.</p>
+        <h2>No markers match these filters</h2>
+        <p>Show more groups or eras to return entries to the worldline.</p>
       </div>
     );
   }
 
-  return <div className="timeline-shell" ref={containerRef} aria-label="Interactive campaign timeline" />;
+  return (
+    <div className="worldline-wrap">
+      <div className="era-ribbon" aria-hidden="true">
+        <span>Before Shattering</span>
+        <span>The Shattering</span>
+        <span>Post Shattering</span>
+      </div>
+      <div ref={containerRef} className="timeline-shell worldline-shell" aria-label="Interactive Wirhorn world history timeline" />
+    </div>
+  );
 }
