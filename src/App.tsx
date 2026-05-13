@@ -241,8 +241,10 @@ export default function App() {
           {loadState === 'ready' && (
             <TimelineView
               events={filteredEvents}
-              onSelectEvent={setSelectedEvent}
-              onPreviewEvent={setPreviewEvent}
+              onSelectEvent={(event) => {
+                setPreviewEvent(event);
+                setSelectedEvent(event);
+              }}
               resetSignal={resetSignal}
             />
           )}
