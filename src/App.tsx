@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import EventModal from './components/EventModal';
 import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
 import TimelineView from './components/TimelineView';
 import { getEraForYear, parseFantasyDate } from './lib/dateParser';
-import { TIMELINE_GROUPS, getGroupColor, type TimelineGroup } from './lib/groupColors';
+import { TIMELINE_GROUPS, getGroupColor, getGroupIcon, type TimelineGroup } from './lib/groupColors';
 
 export type TimelineEvent = {
   id: string;
@@ -21,6 +21,26 @@ export type TimelineEvent = {
 };
 
 type LoadState = 'loading' | 'ready' | 'error';
+
+const WORLD_HISTORY_GROUPS: TimelineGroup[] = [
+  'Eras',
+  'Ancient History',
+  'New World',
+  'Divine Events',
+  'Cataclysms',
+  'Nations',
+  'Wars',
+  'Diplomacy',
+  'Discoveries'
+];
+
+const CAMPAIGN_GROUPS: TimelineGroup[] = [
+  'Campaigns',
+  'Characters',
+  'Organizations',
+  'Artifacts',
+  'Arcane Events'
+];
 
 const normalizeEvent = (event: TimelineEvent): TimelineEvent => {
   const parsed = parseFantasyDate(event.displayDate);
@@ -39,21 +59,26 @@ function TimelinePreview({ event }: { event: TimelineEvent | null }) {
   if (!event) {
     return (
       <aside className="timeline-preview timeline-preview--empty" aria-label="Timeline event preview">
-        <p className="eyebrow">Worldline Navigator</p>
-        <h2>Drag across the timeline</h2>
-        <p>
-          Pan left or right, hover an event, or click a marker to inspect individual moments in
-          the history of Wirhorn.
-        </p>
+        <div className="preview-icon preview-icon--empty">⧖</div>
+        <div>
+          <p className="eyebrow">Worldline Navigator</p>
+          <h2>Drag across the timeline</h2>
+          <p>
+            Pan left or right, hover an event, or click a marker to inspect individual moments in
+            the history of Wirhorn.
+          </p>
+        </div>
       </aside>
     );
   }
 
   const color = getGroupColor(event.group);
+  const icon = getGroupIcon(event.group);
 
   return (
-    <aside className="timeline-preview" aria-label="Timeline event preview">
+    <aside className="timeline-preview" aria-label="Timeline event preview" style={{ '--preview-color': color.color } as CSSProperties}>
       <div className="preview-accent" style={{ background: color.color, boxShadow: `0 0 28px ${color.color}` }} />
+      <div className="preview-icon" style={{ borderColor: color.border, color: color.text, boxShadow: `0 0 26px ${color.color}` }}>{icon}</div>
       <div>
         <p className="eyebrow" style={{ color: color.text }}>{event.group}</p>
         <h2>{event.title}</h2>
@@ -169,6 +194,11 @@ export default function App() {
 
   const resetView = () => setResetSignal((value) => value + 1);
 
+  const handleSelectEvent = useCallback((event: TimelineEvent) => {
+    setPreviewEvent(event);
+    setSelectedEvent(event);
+  }, []);
+
   return (
     <div className="app-shell">
       <header className="hero">
@@ -203,6 +233,14 @@ export default function App() {
             setSelectedGroups(new Set());
             setSelectedEras(new Set());
           }}
+          onCampaignOnly={() => {
+            setSelectedGroups(new Set(CAMPAIGN_GROUPS));
+            setSelectedEras(new Set(availableEras));
+          }}
+          onWorldHistoryOnly={() => {
+            setSelectedGroups(new Set(WORLD_HISTORY_GROUPS));
+            setSelectedEras(new Set(availableEras));
+          }}
         />
 
         <section className="timeline-panel">
@@ -218,9 +256,7 @@ export default function App() {
           <div className="timeline-status">
             <span>{filteredEvents.length} visible entries</span>
             <span>{playerMode ? 'Spoilers hidden' : 'Spoilers visible'}</span>
-            <span>Drag to pan</span>
-            <span>Ctrl + wheel to zoom</span>
-            <span>Click an event for full lore</span>
+            <span>Drag to move through history • Ctrl + wheel to zoom • Hover markers to preview • Click for full lore</span>
           </div>
 
           {loadState === 'loading' && (
@@ -241,10 +277,7 @@ export default function App() {
           {loadState === 'ready' && (
             <TimelineView
               events={filteredEvents}
-              onSelectEvent={(event) => {
-                setPreviewEvent(event);
-                setSelectedEvent(event);
-              }}
+              onSelectEvent={handleSelectEvent}
               onPreviewEvent={setPreviewEvent}
               resetSignal={resetSignal}
             />

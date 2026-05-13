@@ -1,4 +1,4 @@
-import { TIMELINE_GROUPS, getGroupColor, type TimelineGroup } from '../lib/groupColors';
+import { TIMELINE_GROUPS, getGroupColor, getGroupIcon, type TimelineGroup } from '../lib/groupColors';
 
 type FilterPanelProps = {
   selectedGroups: Set<TimelineGroup>;
@@ -10,6 +10,8 @@ type FilterPanelProps = {
   onTogglePlayerMode: () => void;
   onSelectAll: () => void;
   onClearAll: () => void;
+  onCampaignOnly: () => void;
+  onWorldHistoryOnly: () => void;
 };
 
 export default function FilterPanel({
@@ -21,7 +23,9 @@ export default function FilterPanel({
   onToggleEra,
   onTogglePlayerMode,
   onSelectAll,
-  onClearAll
+  onClearAll,
+  onCampaignOnly,
+  onWorldHistoryOnly
 }: FilterPanelProps) {
   return (
     <aside className="filter-panel" aria-label="Timeline filters">
@@ -37,9 +41,11 @@ export default function FilterPanel({
         </label>
       </div>
 
-      <div className="filter-actions">
+      <div className="filter-actions filter-actions--quick">
         <button type="button" onClick={onSelectAll}>Show all</button>
         <button type="button" onClick={onClearAll}>Hide all</button>
+        <button type="button" onClick={onCampaignOnly}>Campaign Only</button>
+        <button type="button" onClick={onWorldHistoryOnly}>World History Only</button>
       </div>
 
       <div className="panel-section">
@@ -59,18 +65,31 @@ export default function FilterPanel({
       </div>
 
       <div className="panel-section">
-        <h3>Event Groups</h3>
-        <div className="filter-list">
+        <h3>Symbol Legend & Groups</h3>
+        <div className="filter-list filter-list--legend">
           {TIMELINE_GROUPS.map((group) => {
             const color = getGroupColor(group);
+            const icon = getGroupIcon(group);
 
             return (
-              <label key={group} className="filter-chip">
+              <label key={group} className="filter-chip filter-chip--group">
                 <input
                   type="checkbox"
                   checked={selectedGroups.has(group)}
                   onChange={() => onToggleGroup(group)}
                 />
+                <span
+                  className="legend-symbol"
+                  style={{
+                    color: color.text,
+                    borderColor: color.border,
+                    background: color.soft,
+                    boxShadow: `0 0 14px ${color.color}`
+                  }}
+                  aria-hidden="true"
+                >
+                  {icon}
+                </span>
                 <span className="color-dot" style={{ background: color.color, boxShadow: `0 0 12px ${color.color}` }} />
                 <span>{group}</span>
               </label>
