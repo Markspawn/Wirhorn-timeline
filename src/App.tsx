@@ -245,6 +245,7 @@ export default function App() {
                 setPreviewEvent(event);
                 setSelectedEvent(event);
               }}
+              onPreviewEvent={setPreviewEvent}
               resetSignal={resetSignal}
             />
           )}
