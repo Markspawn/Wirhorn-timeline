@@ -3,15 +3,15 @@ import { DataSet } from 'vis-data/peer';
 import { Timeline } from 'vis-timeline/peer';
 import type { TimelineOptions } from 'vis-timeline/peer';
 import type { TimelineEvent } from '../App';
-import { timelineYearToValue } from '../lib/dateParser';
+import { timelineYearToValue, valueToTimelineYear } from '../lib/dateParser';
 import { TIMELINE_GROUPS, getGroupColor } from '../lib/groupColors';
 
 type TimelineViewProps = {
   events: TimelineEvent[];
   onSelectEvent: (event: TimelineEvent) => void;
+  onPreviewEvent: (event: TimelineEvent | null) => void;
   resetSignal: number;
 };
-
 
 const escapeHtml = (value: string): string =>
   value
@@ -20,6 +20,26 @@ const escapeHtml = (value: string): string =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+
+const getEventMidpointValue = (event: TimelineEvent): number => {
+  const start = timelineYearToValue(event.start);
+  const end = typeof event.end === 'number' ? timelineYearToValue(event.end) : start;
+
+  return start + (end - start) / 2;
+};
+
+const getClosestEventToValue = (events: TimelineEvent[], value: number): TimelineEvent | null => {
+  if (events.length === 0) {
+    return null;
+  }
+
+  return events.reduce((closest, event) => {
+    const eventDistance = Math.abs(getEventMidpointValue(event) - value);
+    const closestDistance = Math.abs(getEventMidpointValue(closest) - value);
+
+    return eventDistance < closestDistance ? event : closest;
+  }, events[0]);
+};
 
 const getInitialWindow = (events: TimelineEvent[]) => {
   if (events.length === 0) {
@@ -41,7 +61,7 @@ const getInitialWindow = (events: TimelineEvent[]) => {
   };
 };
 
-export default function TimelineView({ events, onSelectEvent, resetSignal }: TimelineViewProps) {
+export default function TimelineView({ events, onSelectEvent, onPreviewEvent, resetSignal }: TimelineViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<Timeline | null>(null);
   const eventsById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
@@ -86,7 +106,9 @@ export default function TimelineView({ events, onSelectEvent, resetSignal }: Tim
     const options: TimelineOptions = {
       orientation: 'top',
       stack: true,
+      moveable: true,
       horizontalScroll: true,
+      zoomable: true,
       zoomKey: 'ctrlKey',
       zoomMin: timelineYearToValue(1) - timelineYearToValue(0),
       zoomMax: timelineYearToValue(9000) - timelineYearToValue(0),
@@ -95,8 +117,11 @@ export default function TimelineView({ events, onSelectEvent, resetSignal }: Tim
       start: initialWindow.start,
       end: initialWindow.end,
       margin: {
-        item: 14,
-        axis: 18
+        item: {
+          horizontal: 18,
+          vertical: 18
+        },
+        axis: 24
       },
       showCurrentTime: false,
       tooltip: {
@@ -131,6 +156,21 @@ export default function TimelineView({ events, onSelectEvent, resetSignal }: Tim
 
     const timeline = new Timeline(containerRef.current, items, groups, options);
 
+    timeline.on('itemover', (properties: { item?: string | number }) => {
+      const hoveredId = properties.item?.toString();
+      onPreviewEvent(hoveredId ? eventsById.get(hoveredId) ?? null : null);
+    });
+
+    timeline.on('rangechange', (properties: { start: Date; end: Date; byUser?: boolean }) => {
+      if (!properties.byUser) {
+        return;
+      }
+
+      const centerValue = properties.start.getTime() + (properties.end.getTime() - properties.start.getTime()) / 2;
+      const centerYear = valueToTimelineYear(centerValue);
+      onPreviewEvent(getClosestEventToValue(events, timelineYearToValue(centerYear)));
+    });
+
     timeline.on('select', (properties: { items: Array<string | number> }) => {
       const selectedId = properties.items[0]?.toString();
       const selectedEvent = selectedId ? eventsById.get(selectedId) : undefined;
@@ -147,7 +187,7 @@ export default function TimelineView({ events, onSelectEvent, resetSignal }: Tim
       timeline.destroy();
       timelineRef.current = null;
     };
-  }, [events, eventsById, onSelectEvent]);
+  }, [events, eventsById, onPreviewEvent, onSelectEvent]);
 
   useEffect(() => {
     const timeline = timelineRef.current;
