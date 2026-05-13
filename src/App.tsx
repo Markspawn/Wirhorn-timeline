@@ -4,7 +4,7 @@ import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
 import TimelineView from './components/TimelineView';
 import { getEraForYear, parseFantasyDate } from './lib/dateParser';
-import { TIMELINE_GROUPS, type TimelineGroup } from './lib/groupColors';
+import { TIMELINE_GROUPS, getGroupColor, type TimelineGroup } from './lib/groupColors';
 
 export type TimelineEvent = {
   id: string;
@@ -35,6 +35,38 @@ const normalizeEvent = (event: TimelineEvent): TimelineEvent => {
   };
 };
 
+function TimelinePreview({ event }: { event: TimelineEvent | null }) {
+  if (!event) {
+    return (
+      <aside className="timeline-preview timeline-preview--empty" aria-label="Timeline event preview">
+        <p className="eyebrow">Worldline Navigator</p>
+        <h2>Drag across the timeline</h2>
+        <p>
+          Pan left or right, hover an event, or click a marker to inspect individual moments in
+          the history of Wirhorn.
+        </p>
+      </aside>
+    );
+  }
+
+  const color = getGroupColor(event.group);
+
+  return (
+    <aside className="timeline-preview" aria-label="Timeline event preview">
+      <div className="preview-accent" style={{ background: color.color, boxShadow: `0 0 28px ${color.color}` }} />
+      <div>
+        <p className="eyebrow" style={{ color: color.text }}>{event.group}</p>
+        <h2>{event.title}</h2>
+        <div className="preview-meta">
+          <span>{event.displayDate}</span>
+          <span>{event.era}</span>
+        </div>
+        <p>{event.summary}</p>
+      </div>
+    </aside>
+  );
+}
+
 export default function App() {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -44,6 +76,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [playerMode, setPlayerMode] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
+  const [previewEvent, setPreviewEvent] = useState<TimelineEvent | null>(null);
   const [resetSignal, setResetSignal] = useState(0);
 
   useEffect(() => {
@@ -63,6 +96,7 @@ export default function App() {
 
         const normalized = data.map(normalizeEvent).sort((a, b) => a.start - b.start);
         setEvents(normalized);
+        setPreviewEvent(normalized[0] ?? null);
         setSelectedEras(new Set(Array.from(new Set(normalized.map((event) => event.era)))));
         setLoadState('ready');
       })
@@ -102,6 +136,12 @@ export default function App() {
       return groupAllowed && eraAllowed && spoilerAllowed && searchAllowed;
     });
   }, [events, playerMode, query, selectedEras, selectedGroups]);
+
+  useEffect(() => {
+    if (!previewEvent || !filteredEvents.some((event) => event.id === previewEvent.id)) {
+      setPreviewEvent(filteredEvents[0] ?? null);
+    }
+  }, [filteredEvents, previewEvent]);
 
   const toggleGroup = useCallback((group: TimelineGroup) => {
     setSelectedGroups((current) => {
@@ -166,6 +206,8 @@ export default function App() {
         />
 
         <section className="timeline-panel">
+          <TimelinePreview event={previewEvent} />
+
           <div className="toolbar">
             <SearchBar value={query} onChange={setQuery} />
             <button className="reset-button" type="button" onClick={resetView}>
@@ -176,6 +218,9 @@ export default function App() {
           <div className="timeline-status">
             <span>{filteredEvents.length} visible entries</span>
             <span>{playerMode ? 'Spoilers hidden' : 'Spoilers visible'}</span>
+            <span>Drag to pan</span>
+            <span>Ctrl + wheel to zoom</span>
+            <span>Click an event for full lore</span>
           </div>
 
           {loadState === 'loading' && (
@@ -197,6 +242,7 @@ export default function App() {
             <TimelineView
               events={filteredEvents}
               onSelectEvent={setSelectedEvent}
+              onPreviewEvent={setPreviewEvent}
               resetSignal={resetSignal}
             />
           )}
